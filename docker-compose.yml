@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=sqlite:///./churnlabs.db
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+    volumes:
+      - ./ml/models:/app/ml/models
+      - ./ml/data:/app/ml/data
+    depends_on:
+      - mlflow
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.dashboard
+    ports:
+      - "8501:8501"
+    environment:
+      - MODEL_PATH=ml/models/churn_model.pkl
+    volumes:
+      - ./ml/models:/app/ml/models
+      - ./ml/data:/app/ml/data
+    depends_on:
+      - api
+
+  mlflow:
+    image: python:3.9-slim
+    ports:
+      - "5000:5000"
+    command: >
+      sh -c "pip install mlflow psycopg2-binary &&
+             mlflow ui --host 0.0.0.0 --port 5000 --backend-store-uri sqlite:///mlflow.db"
+    volumes:
+      - ./mlruns:/mlruns
+      - mlflow-db:/mlflow.db
+
+volumes:
+  mlflow-db:
